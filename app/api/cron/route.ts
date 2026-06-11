@@ -1,8 +1,16 @@
 import prisma from "@/app/lib/prisma";
 import { NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    // 🔒 Validação de segurança para garantir que apenas a Vercel execute esta rota
+    const authHeader = request.headers.get("authorization");
+    const cronSecret = process.env.CRON_SECRET;
+
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ erro: "Não autorizado" }, { status: 401 });
+    }
+
     // 1. Busca no banco todos os lembretes 'pendentes' cuja data já passou do momento atual
     const agora = new Date();
     const pendentes = await prisma.lembrete.findMany({
