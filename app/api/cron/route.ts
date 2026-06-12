@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
   try {
-    // 🔒 Validação de segurança para garantir que apenas a Vercel execute esta rota
     const authHeader = request.headers.get("authorization");
     const cronSecret = process.env.CRON_SECRET;
 
@@ -11,27 +10,24 @@ export async function GET(request: Request) {
       return NextResponse.json({ erro: "Não autorizado" }, { status: 401 });
     }
 
-    // 1. Busca no banco todos os lembretes 'pendentes' cuja data já passou do momento atual
     const agora = new Date();
     const pendentes = await prisma.lembrete.findMany({
       where: {
         status: "pendente",
-        data_agendada: { lte: agora }, // "lte" significa Less Than or Equal (Menor ou Igual a agora)
+        data_agendada: { lte: agora },
       },
     });
 
-    // Se não tiver nada, encerra silenciosamente
     if (pendentes.length === 0) {
       return NextResponse.json({
         mensagem: "Nenhum lembrete para enviar agora.",
       });
     }
 
-    // Pega as chaves do .env
     const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
     const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
-    // 2. Loop: Envia cada mensagem atrasada para o Telegram
+    // envia cada mensagem atrasada para o Telegram
     for (const lembrete of pendentes) {
       const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
 
@@ -45,7 +41,6 @@ export async function GET(request: Request) {
         }),
       });
 
-      // 3. Se o Telegram confirmou o recebimento, atualizamos o banco para não enviar de novo
       if (telegramResponse.ok) {
         await prisma.lembrete.update({
           where: { id: lembrete.id },
